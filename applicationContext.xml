@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:tx="http://www.springframework.org/schema/tx" 
+       xmlns:context="http://www.springframework.org/schema/context" 
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns="http://www.springframework.org/schema/beans" 
+       xsi:schemaLocation="http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.0.xsd 
+                           http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd 
+                           http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.0.xsd
+                           http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd ">
+
+<!--读取db.properties文件  -->
+<context:property-placeholder location="classpath:db.properties"/>
+<!-- 配置c3p0连接池 -->
+<bean name="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+    <property name="driverClass" value="${jdbc.driverClass}"></property>
+    <property name="jdbcUrl" value="${jdbc.jdbcUrl}"></property>
+    <property name="user" value="${jdbc.user}"></property>
+    <property name="password" value="${jdbc.password}"></property>
+</bean>
+
+<!--配置核心事务管理器  -->
+<bean name="transactionManager" class="org.springframework.orm.hibernate5.HibernateTransactionManager" >
+    <property name="sessionFactory" ref="sessionFactory"></property>
+</bean>
+<!-- 配置通知 -->
+<tx:advice id="txAdvice" transaction-manager="transactionManager">
+    <tx:attributes>
+        <tx:method name="save*" isolation="REPEATABLE_READ" propagation="REQUIRED" read-only="false" />
+            <tx:method name="persist*" isolation="REPEATABLE_READ" propagation="REQUIRED" read-only="false" />
+            <tx:method name="update*" isolation="REPEATABLE_READ" propagation="REQUIRED" read-only="false" />
+            <tx:method name="modify*" isolation="REPEATABLE_READ" propagation="REQUIRED" read-only="false" />
+            <tx:method name="delete*" isolation="REPEATABLE_READ" propagation="REQUIRED" read-only="false" />
+            <tx:method name="remove*" isolation="REPEATABLE_READ" propagation="REQUIRED" read-only="false" />
+            <tx:method name="get*" isolation="REPEATABLE_READ" propagation="REQUIRED" read-only="true" />
+            <tx:method name="find*" isolation="REPEATABLE_READ" propagation="REQUIRED" read-only="true" />
+    </tx:attributes>
+</tx:advice>
+<!-- 将通知织入目标对象 -->
+<aop:config>
+    <aop:pointcut expression="execution(* com.nz.service.*ServiceImpl.*(..))" id="txPc"/>
+    <aop:advisor advice-ref="txAdvice" pointcut-ref="txPc"/>
+</aop:config>
+<!--===========================================  -->
+<!--使用注解方式操作事务 ,然后在service中加注解 -->
+<!-- <tx:annotation-driven transaction-manager="transactionManager"/> -->
+
+<!--将SessionFactory配置到spring容器中  -->
+<bean name="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
+    <!--将连接池注入session工厂  -->
+    <property name="dataSource" ref="dataSource"></property>
+    <!-- hibernate基本配置 -->
+    <property name="hibernateProperties">
+        <props>
+            <!-- 5个必选,当配置了连接池时，就不再写了 -->
+            <!-- <prop key="hibernate.connection.driver_class">com.mysql.jdbc.Driver</prop>
+            <prop key="hibernate.connection.url">jdbc:mysql:///ssh_01?characterEncoding=UTF-8</prop>
+            <prop key="hibernate.connection.username">root</prop>
+            <prop key="hibernate.connection.password">123456</prop> -->
+            <prop key="hibernate.dialect">org.hibernate.dialect.MySQLDialect</prop>
+            <!--3个可选  -->
+            <prop key="hibernate.show_sql">true</prop>
+            <prop key="hibernate.format_sql">true</prop>
+            <prop key="hibernate.hbm2ddl.auto">update</prop>
+        </props>
+    </property>
+    <!-- 引入orm元数据 -->
+    <property name="mappingDirectoryLocations" value="classpath:com/nz/domain"></property>
+
+</bean>
+
+
+
+<!--action对象的作用范围一定是多例的，配置scope="prototype" 此时要手动配置-->
+<bean id="userAction" name="userAction" class="com.nz.action.UserAction" scope="prototype">
+    <property name="userService" ref="userService"></property>
+</bean>
+<bean name="userService" class="com.nz.service.UserServiceImpl">
+    <property name="ud" ref="userDao"></property>
+</bean>
+<bean name="userDao" class="com.nz.dao.UserDaoImpl">
+    <!--注入sessionFactory  -->
+    <property name="sessionFactory" ref="sessionFactory"></property>
+</bean>
+
+
+
+</beans>
